@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES="3,5" accelerate launch --mixed_precision=no --dynamo_backend=no --num_machines=1 --multi_gpu --num_processes=2 finetune_distributed.py 

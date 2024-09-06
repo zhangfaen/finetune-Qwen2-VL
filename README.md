@@ -9,6 +9,8 @@ Qwen2-VL 很棒，相信很多人想在其上继续开发或者改造适配为VL
 
 注：官访给了一个使用LLaMA-Factory方式微调Qwen2-VL的方法，我尝试了一下，发现LLaMA-Factory过于黑盒，概念很多，甚至有点冗余。我自己喜欢简单透明的代码，所以自己写了一份微调Qwen2-VL的代码，希望对喜欢自己写train-loop的同学有帮助。   
 
+我有一个微信订阅号 “后向传播”， 在里面时不时写一些技术类文章，包括这篇 （ https://mp.weixin.qq.com/s/mN9Pxpd2Wciw1-IAoFc08A ），欢迎关注。
+<img src="readme_imgs/3.jpg" width="20%" height="20%"> 
 
 ### 快速开始微调或者再训练Qwen2-VL 2B模型
 ---

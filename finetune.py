@@ -96,7 +96,7 @@ def collate_fn(batch, processor, device):
 def train():
     # default: Load the model on the available device(s)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"
+        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, attn_implementation="flash_attention_2", device_map="auto"
     )
 
     # (Pdb++) model
@@ -171,6 +171,12 @@ def train():
     # make casual_mask easier to build by attention mask. for more detail, see *** notes.txt *** of this repo.
     # in batching inference, we must use "padding_side" left, as generation usually ust last token of output list of tokens.
     # in training, it is recommended to use "padding_side" right.
+    # https://github.com/huggingface/transformers/pull/26572 
+    
+    # Attend to all tokens in fully masked rows in the causal_mask, for example the relevant first rows when
+    # using left padding. This is required by F.scaled_dot_product_attention memory-efficient attention path.
+    # Details: https://github.com/pytorch/pytorch/issues/110213
+    # see transformers/models/qwen2_vl/modeling_qwen2_vl.py: causal_mask = AttentionMaskConverter._unmask_unattended(causal_mask, min_dtype)
     processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=256*28*28, max_pixels=512*28*28, padding_side="right")
 
     # The default range for the number of visual tokens per image in the model is 4-16384. You can set min_pixels and max_pixels according to your needs, such as a token count range of 256-1280, to balance speed and memory usage.

@@ -112,7 +112,12 @@ def train():
     # )
 
     # default processer, min image tokens 256, max image tokens 512
-    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=256*28*28, max_pixels=512*28*28)
+    # Note: typically, in training, when we batch size of training dataloader is > 1, it is often we need pad shorter inputs to the same length.
+    # in training, we often add "padding_token_id" to the right side of shorter inputs to make them the same length. padding_side right 
+    # make casual_mask easier to build by attention mask. for more detail, see *** notes.txt *** of this repo.
+    # in batching inference, we must use "padding_side" left, as generation usually ust last token of output list of tokens.
+    # in training, it is recommended to use "padding_side" right.
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=256*28*28, max_pixels=512*28*28, padding_side="right")
 
     # The default range for the number of visual tokens per image in the model is 4-16384. You can set min_pixels and max_pixels according to your needs, such as a token count range of 256-1280, to balance speed and memory usage.
     # min_pixels = 256*28*28

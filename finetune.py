@@ -76,6 +76,7 @@ def collate_fn(batch, processor, device):
         padding=True,
         return_tensors="pt",
     )
+ 
     inputs = inputs.to(device)
 
     input_ids_lists = inputs['input_ids'].tolist()
@@ -95,8 +96,66 @@ def collate_fn(batch, processor, device):
 def train():
     # default: Load the model on the available device(s)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype="bfloat16", device_map="auto"
+        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"
     )
+
+    # (Pdb++) model
+    # Qwen2VLForConditionalGeneration(
+    #   (visual): Qwen2VisionTransformerPretrainedModel(
+    #     (patch_embed): PatchEmbed(
+    #       (proj): Conv3d(3, 1280, kernel_size=(2, 14, 14), stride=(2, 14, 14), bias=False)
+    #     )
+    #     (rotary_pos_emb): VisionRotaryEmbedding()
+    #     (blocks): ModuleList(
+    #       (0-31): 32 x Qwen2VLVisionBlock(
+    #         (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True)
+    #         (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True)
+    #         (attn): VisionSdpaAttention(
+    #           (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+    #           (proj): Linear(in_features=1280, out_features=1280, bias=True)
+    #         )
+    #         (mlp): VisionMlp(
+    #           (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+    #           (act): QuickGELUActivation()
+    #           (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+    #         )
+    #       )
+    #     )
+    #     (merger): PatchMerger(
+    #       (ln_q): LayerNorm((1280,), eps=1e-06, elementwise_affine=True)
+    #       (mlp): Sequential(
+    #         (0): Linear(in_features=5120, out_features=5120, bias=True)
+    #         (1): GELU(approximate='none')
+    #         (2): Linear(in_features=5120, out_features=1536, bias=True)
+    #       )
+    #     )
+    #   )
+    #   (model): Qwen2VLModel(
+    #     (embed_tokens): Embedding(151936, 1536)
+    #     (layers): ModuleList(
+    #       (0-27): 28 x Qwen2VLDecoderLayer(
+    #         (self_attn): Qwen2VLSdpaAttention(
+    #           (q_proj): Linear(in_features=1536, out_features=1536, bias=True)
+    #           (k_proj): Linear(in_features=1536, out_features=256, bias=True)
+    #           (v_proj): Linear(in_features=1536, out_features=256, bias=True)
+    #           (o_proj): Linear(in_features=1536, out_features=1536, bias=False)
+    #           (rotary_emb): Qwen2RotaryEmbedding()
+    #         )
+    #         (mlp): Qwen2MLP(
+    #           (gate_proj): Linear(in_features=1536, out_features=8960, bias=False)
+    #           (up_proj): Linear(in_features=1536, out_features=8960, bias=False)
+    #           (down_proj): Linear(in_features=8960, out_features=1536, bias=False)
+    #           (act_fn): SiLU()
+    #         )
+    #         (input_layernorm): Qwen2RMSNorm((1536,), eps=1e-06)
+    #         (post_attention_layernorm): Qwen2RMSNorm((1536,), eps=1e-06)
+    #       )
+    #     )
+    #     (norm): Qwen2RMSNorm((1536,), eps=1e-06)
+    #   )
+    #   (lm_head): Linear(in_features=1536, out_features=151936, bias=False)
+    # )
+
 
     # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
     # model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -106,8 +165,13 @@ def train():
     #     device_map="auto",
     # )
 
-    # default processer, min image tokens 256, max image tokens 512
-    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=256*28*28, max_pixels=512*28*28)
+    # default processor, min image tokens 256, max image tokens 512
+    # Note: typically, in training, when we batch size of training dataloader is > 1, it is often we need pad shorter inputs to the same length.
+    # in training, we often add "padding_token_id" to the right side of shorter inputs to make them the same length. padding_side right 
+    # make casual_mask easier to build by attention mask. for more detail, see *** notes.txt *** of this repo.
+    # in batching inference, we must use "padding_side" left, as generation usually ust last token of output list of tokens.
+    # in training, it is recommended to use "padding_side" right.
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=256*28*28, max_pixels=512*28*28, padding_side="right")
 
     # The default range for the number of visual tokens per image in the model is 4-16384. You can set min_pixels and max_pixels according to your needs, such as a token count range of 256-1280, to balance speed and memory usage.
     # min_pixels = 256*28*28
@@ -116,7 +180,7 @@ def train():
 
     train_loader = DataLoader(
         ToyDataSet("train_data/data.json"),
-        batch_size=1,
+        batch_size=2,
         collate_fn=partial(collate_fn, processor=processor, device=device)
     )
 
@@ -132,6 +196,8 @@ def train():
         for batch in train_loader:
             steps += 1
             inputs, labels = batch
+            # import pdb
+            # pdb.set_trace()
             outputs = model(**inputs, labels=labels)
             
             loss = outputs.loss / NUM_ACCUMULATION_STEPS

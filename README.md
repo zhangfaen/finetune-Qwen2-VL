@@ -1,5 +1,7 @@
 # Fine-tuning Qwen2-VL-2B
 
+**[English version of this document](README.en.md)**
+
 2024年8月29日，开源大模型界的明星 通义千问团队 发布了多模态大模型Qwen2-VL，有2B、7B和72B 3个版本。整体来看，Qwen2-VL 72B 规模的模型在大部分的指标上都达到了最优，甚至超过了 GPT-4o 和 Claude3.5-Sonnet 等闭源模型，特别是在文档理解方面优势明显。他们在他们的blog上展示了很多炸裂的案例，具体参考 https://qwenlm.github.io/zh/blog/qwen2-vl/ 。 Qwen2-VL模型架构图，画的非常好，我单独引用放在下面。  
 
 <img src="readme_imgs/1.jpeg" width="100%" height="40%">   

@@ -93,6 +93,25 @@ def collate_fn(batch, processor, device):
 
     return inputs, labels_ids
 
+def write_chat_template(processor, output_dir):
+    '''
+    ***Note**
+
+    We should have not had this function, as normal processor.save_pretrained(output_dir) would save chat_template.json file.
+    However, on 2024/09/05, I think a commit introduced a bug to "huggingface/transformers", which caused the chat_template.json file not to be saved. 
+    See the below commit, src/transformers/processing_utils.py line 393, this commit avoided chat_template.json to be saved.
+    https://github.com/huggingface/transformers/commit/43df47d8e78238021a4273746fc469336f948314#diff-6505546ec5a9ab74b2ce6511681dd31194eb91e9fa3ce26282e487a5e61f9356
+
+    To walk around that bug, we need manually save the chat_template.json file.
+
+    I hope this bug will be fixed soon and I can remove this function then.
+    '''
+    output_chat_template_file = os.path.join(output_dir, "chat_template.json")
+    chat_template_json_string = json.dumps({"chat_template": processor.chat_template}, indent=2, sort_keys=True) + "\n"
+    with open(output_chat_template_file, "w", encoding="utf-8") as writer:
+        writer.write(chat_template_json_string)
+        logger.info(f"chat template saved in {output_chat_template_file}")
+
 def train():
     # default: Load the model on the available device(s)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -191,7 +210,7 @@ def train():
     )
 
     model.train()
-    epochs = 300
+    epochs = 20
     # import pdb
     # pdb.set_trace()
     optimizer = AdamW(model.parameters(), lr=1e-5)
@@ -219,6 +238,7 @@ def train():
     os.makedirs(output_dir, exist_ok=True)
     model.save_pretrained(output_dir)
     processor.save_pretrained(output_dir)
+    write_chat_template(processor, output_dir)
 
 if __name__ == "__main__":
     train()

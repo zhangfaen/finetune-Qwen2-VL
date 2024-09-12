@@ -1,7 +1,11 @@
 accelerate==0.34.0
+attrs==24.2.0
 certifi==2024.8.30
 charset-normalizer==3.3.2
+einops==0.8.0
+fancycompleter==0.9.1
 filelock==3.15.4
+flash-attn==2.6.3
 fsspec==2024.9.0
 huggingface-hub==0.24.6
 idna==3.8
@@ -23,8 +27,11 @@ nvidia-nccl-cu12==2.20.5
 nvidia-nvjitlink-cu12==12.6.68
 nvidia-nvtx-cu12==12.1.105
 packaging==24.1
+pdbpp==0.10.3
 pillow==10.4.0
 psutil==6.0.0
+Pygments==2.18.0
+pyrepl==0.9.0
 PyYAML==6.0.2
 regex==2024.7.24
 requests==2.32.3
@@ -35,7 +42,8 @@ tokenizers==0.19.1
 torch==2.4.1
 torchvision==0.19.1
 tqdm==4.66.5
-transformers @ git+https://github.com/huggingface/transformers@03164ba14e1ce02b469e9dd066b5f2d805d0ab10
+transformers @ git+https://github.com/huggingface/transformers@98f5463fee0009538eb1ca9f7e466c6145e3a731
 triton==3.0.0
 typing_extensions==4.12.2
 urllib3==2.2.2
+wmctrl==0.5

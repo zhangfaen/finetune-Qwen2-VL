@@ -96,7 +96,7 @@ def collate_fn(batch, processor, device):
 def train():
     # default: Load the model on the available device(s)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"
+        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, attn_implementation="flash_attention_2", device_map="auto"
     )
 
     # (Pdb++) model
@@ -186,7 +186,7 @@ def train():
 
     train_loader = DataLoader(
         ToyDataSet("train_data/data.json"),
-        batch_size=2,
+        batch_size=4,
         collate_fn=partial(collate_fn, processor=processor, device=device)
     )
 

@@ -59,26 +59,6 @@
             }
         ]
     },
-    {
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "image": "train_data/1.jpeg"
-                    },
-                    {"type": "text", "text": "描述一下这个图片"}
-                ]
-            },
-            {
-                "role": "assistant",
-                "content": [
-                    {"type": "text", "text": "这张图片展示了一位年轻女子和她的狗在海滩上玩耍的场景。女子穿着格子衬衫和黑色裤子，坐在沙滩上，与她的金毛犬互动。她们的手臂伸展着，似乎在进行某种游戏或训练。背景是广阔的海洋和晴朗的天空，阳光洒在沙滩上，营造出温暖而宁静的氛围。整体画面充满了快乐和放松的感觉。"}
-                ]
-            }
-        ]
-    },
 
     {
         "messages": [
@@ -115,6 +95,25 @@
                 "role": "assistant",
                 "content": [
                     {"type": "text", "text": "The common elements in these pictures are the presence of a dog and a beach setting."}
+                ]
+            }
+        ]
+    },
+
+    {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "video", "video": "train_data/1.mp4"},
+                    {"type": "text", "text": "描述一下这个视频"}
+                ]
+            },
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "这个视频展示了一只狗坐在桌子上，旁边有一个穿着粉色衣服的男人。桌子上放着一杯饮料和一个啤酒瓶。看起来这个男人和这个狗都喝多了，他们击掌的时候，狗子踩翻椅子，摔倒在地上。"}
                 ]
             }
         ]

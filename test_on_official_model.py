@@ -51,7 +51,23 @@ messages2 = [
     }
 ]
 
-messages = [messages1, messages2]
+messages3 = [
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "video",
+                "video": "test_data/1.mp4",
+                "max_pixels": 360 * 420,
+                "fps": 1.0,
+            },
+            {"type": "text", "text": "描述一下这个视频"},
+        ],
+    }
+]
+
+
+messages = [messages1, messages2, messages3]
 texts = [
     processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=True)
     for msg in messages

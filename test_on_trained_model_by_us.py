@@ -2,7 +2,7 @@ from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from util.vision_util import process_vision_info
 from pprint import pprint
 
-model_dir = "train_output/20240905121520/"
+model_dir = "train_output/20240913221349/"
 # default: Load the model on the available device(s)
 model = Qwen2VLForConditionalGeneration.from_pretrained(
     model_dir, torch_dtype="auto", device_map="auto"
@@ -50,12 +50,27 @@ messages2 = [
     }
 ]
 
+messages3 = [
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "video",
+                "video": "test_data/1.mp4",
+                "max_pixels": 360 * 420,
+                "fps": 1.0,
+            },
+            {"type": "text", "text": "描述一下这个视频"},
+        ],
+    }
+]
+
 # Preparation for inference
 # text = processor.apply_chat_template(
 #     messages, tokenize=False, add_generation_prompt=True
 # )
 
-messages = [messages1, messages2]
+messages = [messages1, messages2, messages3]
 texts = [
     processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=True)
     for msg in messages

@@ -3,7 +3,7 @@
 
 ### News/Updates
 * 2024/09/25 
-  * Use torchvision.io.VideoReader instead of torchvision.io.read_video to read video. torchvision.io.read_video sometimes is very very slow and maybe 200x times slower than torchvision.io.VideoReader.
+  * Use torchvision.io.VideoReader instead of torchvision.io.read_video to read video. torchvision.io.read_video sometimes is very very slow and maybe 200x times slower than torchvision.io.VideoReader. See [how_to_read_video_faster.ipynb](how_to_read_video_faster.ipynb)
   * Refine comments in the code.
 * 2024/09/13 Add a video data example in train_data and test_data.  **Note:** 
   * This need "pip install av" to process video data. See updated requirements.txt file. 

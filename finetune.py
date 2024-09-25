@@ -8,15 +8,15 @@ from torch.utils.data import Dataset
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from functools import partial
+
 from util.vision_util import process_vision_info
-from torch.optim import AdamW
 from util.logutil import init_logger, get_logger
 
 output_dir = f'train_output/{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}/'
 init_logger(output_dir)
 logger = get_logger()
 
-device = "cuda:0"
+device = "cuda"
 
 class ToyDataSet(Dataset): # for toy demo
     def __init__(self, data_path):
@@ -31,6 +31,19 @@ class ToyDataSet(Dataset): # for toy demo
         return self.data[idx]
     
 def find_assistant_content_sublist_indexes(l):
+    '''
+    A message from train_data/data.json may look like below:
+        {
+            "messages": [
+                {'role': 'user', 'content': [{'type': 'image', 'image': 'train_data/1.jpeg'}, {'type': 'text', 'text': '描述一下这个图片'}]}, 
+                {'role': 'assistant', 'content': [{'type': 'text', 'text': '这张图片展示了一位年轻女子和她的狗在海滩上玩耍的场景。女子穿着格子衬衫和黑色裤子，坐在沙滩上，与她的金毛犬互动。她们的手臂伸展着，似乎在进行某种游戏或训练。背景是广阔的海洋和晴朗的天空，阳光洒在沙滩上，营造出温暖而宁静的氛围。整体画面充满了快乐和放松的感觉。'}]}
+            ]
+        }
+    After apply_chat_template, the text will look like below:
+        ['<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n<|vision_start|><|image_pad|><|vision_end|>描述一下这个图片<|im_end|>\n<|im_start|>assistant\n这张图片展示了一位年轻女子和她的狗在海滩上玩耍的场景。女子穿着格子衬衫和黑色裤子，坐在沙滩上，与她的金毛犬互动。她们的手臂伸展着，似乎在进行某种游戏或训练。背景是广阔的海洋和晴朗的天空，阳光洒在沙滩上，营造出温暖而宁静的氛围。整体画面充满了快乐和放松的感觉。<|im_end|>\n']
+
+    This function tries to find the indexes of the assistant content in the input_ids list to build labels.
+    '''
     # (Pdb++) processor.tokenizer.encode("<|im_start|>assistant")
     # [151644, 77091]
     # (Pdb++) processor.tokenizer.encode("<|im_end|>")
@@ -53,22 +66,14 @@ def find_assistant_content_sublist_indexes(l):
     return list(zip(start_indexes, end_indexes))
 
 def collate_fn(batch, processor, device):
-    '''
-    A message from data.json may look like below:
-        [[{'role': 'user', 'content': [{'type': 'image', 'image': 'train_data/1.jpeg'}, {'type': 'text', 'text': '描述一下这个图片'}]}, {'role': 'assistant', 'content': [{'type': 'text', 'text': '这张图片展示了一位年轻女子和她的狗在海滩上玩耍的场景。女子穿着格子衬衫和黑色裤子，坐在沙滩上，与她的金毛犬互动。她们的手臂伸展着，似乎在进行某种游戏或训练。背景是广阔的海洋和晴朗的天空，阳光洒在沙滩上，营造出温暖而宁静的氛围。整体画面充满了快乐和放松的感觉。'}]}]]
-    After apply_chat_template, the text will look like below:
-        ['<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n<|vision_start|><|image_pad|><|vision_end|>描述一下这个图片<|im_end|>\n<|im_start|>assistant\n这张图片展示了一位年轻女子和她的狗在海滩上玩耍的场景。女子穿着格子衬衫和黑色裤子，坐在沙滩上，与她的金毛犬互动。她们的手臂伸展着，似乎在进行某种游戏或训练。背景是广阔的海洋和晴朗的天空，阳光洒在沙滩上，营造出温暖而宁静的氛围。整体画面充满了快乐和放松的感觉。<|im_end|>\n']
-
-    The key of this function is to find the indexes of the assistant content in the input_ids list to build labels.
-    '''
     # (Pdb++) processor.tokenizer.encode("<|im_start|>assistant")
     # [151644, 77091]
     # (Pdb++) processor.tokenizer.encode("<|im_end|>")
     # [151645]
-    
     messages = [m['messages'] for m in batch]
     texts = [processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=False) for msg in messages]
     image_inputs, video_inputs = process_vision_info(messages)
+
     inputs = processor(
         text=texts,
         images=image_inputs,
@@ -76,7 +81,7 @@ def collate_fn(batch, processor, device):
         padding=True,
         return_tensors="pt",
     )
- 
+
     inputs = inputs.to(device)
 
     input_ids_lists = inputs['input_ids'].tolist()
@@ -90,8 +95,8 @@ def collate_fn(batch, processor, device):
         labels_list.append(label_ids)
 
     labels_ids = torch.tensor(labels_list, dtype=torch.int64)
-
     return inputs, labels_ids
+
 
 def write_chat_template(processor, output_dir):
     '''
@@ -113,7 +118,18 @@ def write_chat_template(processor, output_dir):
         logger.info(f"chat template saved in {output_chat_template_file}")
 
 def train():
-    # default: Load the model on the available device(s)
+    # Load the model on the available device(s)
+    # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
+    # model = Qwen2VLForConditionalGeneration.from_pretrained(
+    #     "Qwen/Qwen2-VL-2B-Instruct",
+    #     torch_dtype=torch.bfloat16,
+    #     attn_implementation="flash_attention_2",
+    #     device_map="auto",
+    # )
+
+    # ** WARNING ** When run below line , we got below warning message:
+    #   Unrecognized keys in `rope_scaling` for 'rope_type'='default': {'mrope_section'}"
+    # It is a issue, see https://github.com/huggingface/transformers/issues/33401
     model = Qwen2VLForConditionalGeneration.from_pretrained(
         "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, attn_implementation="flash_attention_2", device_map="auto"
     )
@@ -175,42 +191,33 @@ def train():
     #   (lm_head): Linear(in_features=1536, out_features=151936, bias=False)
     # )
 
-
-    # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
-    # model = Qwen2VLForConditionalGeneration.from_pretrained(
-    #     "Qwen/Qwen2-VL-2B-Instruct",
-    #     torch_dtype=torch.bfloat16,
-    #     attn_implementation="flash_attention_2",
-    #     device_map="auto",
-    # )
-
-    # default processor, min image tokens 256, max image tokens 512
-    # Note: typically, in training, when we batch size of training dataloader is > 1, it is often we need pad shorter inputs to the same length.
-    # in training, we often add "padding_token_id" to the right side of shorter inputs to make them the same length. padding_side right 
-    # make casual_mask easier to build by attention mask. for more detail, see *** notes.txt *** of this repo.
-    # in batching inference, we must use "padding_side" left, as generation usually ust last token of output list of tokens.
-    # in training, it is recommended to use "padding_side" right.
-    # https://github.com/huggingface/transformers/pull/26572 
-    
-    # Attend to all tokens in fully masked rows in the causal_mask, for example the relevant first rows when
-    # using left padding. This is required by F.scaled_dot_product_attention memory-efficient attention path.
-    # Details: https://github.com/pytorch/pytorch/issues/110213
-    # see transformers/models/qwen2_vl/modeling_qwen2_vl.py: causal_mask = AttentionMaskConverter._unmask_unattended(causal_mask, min_dtype)
-    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=256*28*28, max_pixels=512*28*28, padding_side="right")
-
+    # Load processor. 
     # The default range for the number of visual tokens per image in the model is 4-16384. You can set min_pixels and max_pixels according to your needs, such as a token count range of 256-1280, to balance speed and memory usage.
     # min_pixels = 256*28*28
     # max_pixels = 1280*28*28
-    # processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=min_pixels, max_pixels=max_pixels)
+
+    # **Note:** About padding_side parameter, it default value is "left", here we set it as "right".
+    # For why, read below.
+    # Typically, in training, when batch size of training dataloader is > 1, it is often we need pad shorter inputs to the same length.
+    # To pad, we often add "padding_token_id" to the right side of shorter inputs to make them the same length and set 0 in attention_mask for those padding_token_id.
+    # It makes casual_mask easier to build by attention mask. for more detail, see *** notes.txt *** of this repo.
+    # BTW, in batching inference, we must use "padding_side" left, as generation usually uses the last token of output list of tokens.
+    # 
+    # If you like to read more, here are more discussions about padding and padding side:
+    # https://github.com/huggingface/transformers/pull/26572
+    # https://github.com/pytorch/pytorch/issues/110213
+    # transformers/models/qwen2_vl/modeling_qwen2_vl.py: causal_mask = AttentionMaskConverter._unmask_unattended(causal_mask, min_dtype)
+    
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", min_pixels=256*28*28, max_pixels=512*28*28, padding_side="right")
 
     train_loader = DataLoader(
         ToyDataSet("train_data/data.json"),
-        batch_size=4,
+        batch_size=1,
         collate_fn=partial(collate_fn, processor=processor, device=device)
     )
 
     model.train()
-    epochs = 20
+    epochs = 10
     # import pdb
     # pdb.set_trace()
     optimizer = AdamW(model.parameters(), lr=1e-5)
@@ -242,5 +249,4 @@ def train():
 
 if __name__ == "__main__":
     train()
-
     

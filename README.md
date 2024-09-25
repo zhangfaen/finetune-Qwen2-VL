@@ -2,6 +2,9 @@
 **[这个文档的中文版](README.zh.md)**
 
 ### News/Updates
+* 2024/09/25 
+  * Use torchvision.io.VideoReader instead of torchvision.io.read_video to read video. torchvision.io.read_video sometimes is very very slow and maybe 200x times slower than torchvision.io.VideoReader.
+  * Refine comments in the code.
 * 2024/09/13 Add a video data example in train_data and test_data.  **Note:** 
   * This need "pip install av" to process video data. See updated requirements.txt file. 
   * For training, video data consumes much GPU ram, if your GPU ram is not enough, you may set the batch size to 1. 

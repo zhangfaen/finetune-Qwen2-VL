@@ -1,3 +1,7 @@
+# original file: https://github.com/kq-chen/qwen-vl-utils/blob/main/src/qwen_vl_utils/vision_process.py
+# I made some modifications to the original code.
+# 1. Use torchvision.io.VideoReader to read video frames instead of torchvision.io.read_video. The former is much much faster.
+# 2. Remove FPS parameter. It is not that necessary.
 from __future__ import annotations
 
 import base64
@@ -6,8 +10,9 @@ from io import BytesIO
 
 import requests
 import torch
+import torchvision
 from PIL import Image
-from torchvision import io, transforms
+from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 
 
@@ -17,12 +22,11 @@ MAX_PIXELS = 16384 * 28 * 28
 MAX_RATIO = 200
 
 VIDEO_MIN_PIXELS = 128 * 28 * 28
-VIDEO_MAX_PIXELS = 768 * 28 * 28
-VIDEO_TOTAL_PIXELS = 24576 * 28 * 28
+VIDEO_MAX_PIXELS = 768 / 4 * 28 * 28
+VIDEO_TOTAL_PIXELS = 24576 / 4 * 28 * 28
 FRAME_FACTOR = 2
-FPS = 2.0
 FPS_MIN_FRAMES = 4
-FPS_MAX_FRAMES = 768
+FPS_MAX_FRAMES = 768 / 4
 
 
 def round_by_factor(number: int, factor: int) -> int:
@@ -122,22 +126,16 @@ def fetch_video(ele: dict, image_factor: int = IMAGE_FACTOR) -> torch.Tensor | l
         if video.startswith("file://"):
             video = video[7:]
 
-        video, audio, info = io.read_video(
-            video,
-            start_pts=ele.get("video_start", 0.0),
-            end_pts=ele.get("video_end", None),
-            pts_unit="sec",
-            output_format="TCHW",
-        )
+        frames_data = [f for f in torchvision.io.VideoReader(video, "video")]
 
-        assert not ("fps" in ele and "nframes" in ele), "Only accept either `fps` or `nframes`"
+        video = torch.stack([f["data"] for f in frames_data])
+
         if "nframes" in ele:
             nframes = round_by_factor(ele["nframes"], FRAME_FACTOR)
         else:
-            fps = ele.get("fps", FPS)
             min_frames = ceil_by_factor(ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR)
             max_frames = floor_by_factor(ele.get("max_frames", min(FPS_MAX_FRAMES, video.size(0))), FRAME_FACTOR)
-            nframes = video.size(0) / info["video_fps"] * fps
+            nframes = video.size(0) / 30 # **NOTE**: TODO(zhangfaen): hard code 30, but it should be fps from VideoReader
             nframes = min(max(nframes, min_frames), max_frames)
             nframes = round_by_factor(nframes, FRAME_FACTOR)
         if not (FRAME_FACTOR <= nframes and nframes <= video.size(0)):
@@ -165,6 +163,7 @@ def fetch_video(ele: dict, image_factor: int = IMAGE_FACTOR) -> torch.Tensor | l
                 min_pixels=min_pixels,
                 max_pixels=max_pixels,
             )
+
         video = transforms.functional.resize(
             video,
             [resized_height, resized_width],

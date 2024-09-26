@@ -127,6 +127,10 @@ def fetch_video(ele: dict, image_factor: int = IMAGE_FACTOR) -> torch.Tensor | l
             video = video[7:]
 
         frames_data = [f for f in torchvision.io.VideoReader(video, "video")]
+        assert(len(frames_data) > 0)
+
+        duration = frames_data[-1]['pts'] - frames_data[0]['pts']
+        fps = len(frames_data) / duration
 
         video = torch.stack([f["data"] for f in frames_data])
 
@@ -135,7 +139,7 @@ def fetch_video(ele: dict, image_factor: int = IMAGE_FACTOR) -> torch.Tensor | l
         else:
             min_frames = ceil_by_factor(ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR)
             max_frames = floor_by_factor(ele.get("max_frames", min(FPS_MAX_FRAMES, video.size(0))), FRAME_FACTOR)
-            nframes = video.size(0) / 30 # **NOTE**: TODO(zhangfaen): hard code 30, but it should be fps from VideoReader
+            nframes = video.size(0) / fps
             nframes = min(max(nframes, min_frames), max_frames)
             nframes = round_by_factor(nframes, FRAME_FACTOR)
         if not (FRAME_FACTOR <= nframes and nframes <= video.size(0)):

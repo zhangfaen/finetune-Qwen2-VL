@@ -2,6 +2,8 @@
 **[这个文档的中文版](README.zh.md)**
 
 ### News/Updates
+* 2024/10/12
+  * Update package dependencies to use latest huggingface/transformers released version 4.45.2. Tests passed.
 * 2024/09/25 
   * Use torchvision.io.VideoReader instead of torchvision.io.read_video to read video. torchvision.io.read_video sometimes is very very slow and maybe 200x times slower than torchvision.io.VideoReader. See [how_to_read_video_faster.ipynb](how_to_read_video_faster.ipynb)
   * Refine comments in the code.

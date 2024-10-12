@@ -2,7 +2,7 @@ from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from util.vision_util import process_vision_info
 from pprint import pprint
 
-model_dir = "train_output/20240913221349/"
+model_dir = "train_output/20241012181406/"
 # default: Load the model on the available device(s)
 model = Qwen2VLForConditionalGeneration.from_pretrained(
     model_dir, torch_dtype="auto", device_map="auto"

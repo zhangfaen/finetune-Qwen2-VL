@@ -1,10 +1,15 @@
+import sys
+from pathlib import Path
+sys.path.append(Path(__file__).resolve().parents[1].as_posix()+"/util")  # TODO: fix this ugly import hack
+
+
 import json
 import datetime
 import os
 
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from torch.optim import AdamW
-from util.logutil import init_logger, get_logger
+from logutil import init_logger, get_logger
 from util.coco_dataloader import get_train_data_loader
 from accelerate import Accelerator
 

@@ -28,6 +28,7 @@ dataset = load_dataset("rafaelpadilla/coco2017")
 %git clone https://github.com/huggingface/transformers
 %cd transformers
 # Cherry-pick this PR https://github.com/huggingface/transformers/pull/33487 to fix the bug in the qwen2-vl code
+# On 2024-10-30, above PR has been merged into transformers. So you don't need to cherry-pick it any more.
 %pip install -e .
 %cd  finetune-Qwen2-VL/try_qwen2_vl_for_object_detection_by_method_1
 ```

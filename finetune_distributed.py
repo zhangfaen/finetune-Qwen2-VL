@@ -59,13 +59,13 @@ def find_assistant_content_sublist_indexes(l):
 
     # Iterate through the list to find starting points
     for i in range(len(l) - 1):
-        # Check if the current and next element form the start sequence
-        if l[i] == 151644 and l[i + 1] == 77091:
-            start_indexes.append(i)
-            # Now look for the first 151645 after the start
-            for j in range(i + 2, len(l)):
-                if l[j] == 151645:
-                    end_indexes.append(j)
+        # Check if the current and next elements form the start sequence
+        if l[i] == 151644 and l[i + 1] == 77091 and l[i+2] == 198:
+            start_indexes.append(i+3)
+            # Now look for the first 151645 and 198 after the start
+            for j in range(i+3, len(l)-1):
+                if l[j] == 151645 and l[j+1] == 198:
+                    end_indexes.append(j+2) # **NOTE** the <|im_end|>\n 2 tokens should be included in the label, so that model can predicate end of output.
                     break  # Move to the next start after finding the end
 
     return list(zip(start_indexes, end_indexes))
@@ -95,7 +95,7 @@ def collate_fn(batch, processor, device):
     for ids_list in input_ids_lists:
         label_ids = [-100] * len(ids_list) # -100 is the ignore index in loss function
         for begin_end_indexs in find_assistant_content_sublist_indexes(ids_list):
-            label_ids[begin_end_indexs[0]+2:begin_end_indexs[1]+1] = ids_list[begin_end_indexs[0]+2:begin_end_indexs[1]+1]
+            label_ids[begin_end_indexs[0]:begin_end_indexs[1]] = ids_list[begin_end_indexs[0]:begin_end_indexs[1]]
         labels_list.append(label_ids)
 
     labels_ids = torch.tensor(labels_list, dtype=torch.int64)

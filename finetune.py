@@ -44,10 +44,10 @@ def find_assistant_content_sublist_indexes(l):
 
     This function tries to find the indexes of the assistant content in the input_ids list to build labels.
     '''
-    # (Pdb++) processor.tokenizer.encode("<|im_start|>assistant")
-    # [151644, 77091]
-    # (Pdb++) processor.tokenizer.encode("<|im_end|>")
-    # [151645]
+    # (Pdb++) processor.tokenizer.encode("<|im_start|>assistant\n")
+    # [151644, 77091, 198]
+    # (Pdb++) processor.tokenizer.encode("<|im_end|>\n")
+    # [151645, 198]
 
     start_indexes = []
     end_indexes = []
@@ -55,7 +55,7 @@ def find_assistant_content_sublist_indexes(l):
     # Iterate through the list to find starting points
     for i in range(len(l) - 1):
         # Check if the current and next elements form the start sequence
-        if l[i] == 151644 and l[i + 1] == 77091 and l[i+2] == 198:
+        if l[i] == 151644 and l[i+1] == 77091 and l[i+2] == 198:
             start_indexes.append(i+3)
             # Now look for the first 151645 and 198 after the start
             for j in range(i+3, len(l)-1):

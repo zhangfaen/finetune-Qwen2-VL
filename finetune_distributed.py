@@ -58,7 +58,7 @@ def find_assistant_content_sublist_indexes(l):
     end_indexes = []
 
     # Iterate through the list to find starting points
-    for i in range(len(l) - 1):
+    for i in range(len(l) - 2):
         # Check if the current and next elements form the start sequence
         if l[i] == 151644 and l[i+1] == 77091 and l[i+2] == 198:
             start_indexes.append(i+3)

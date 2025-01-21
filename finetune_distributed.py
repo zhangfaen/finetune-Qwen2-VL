@@ -12,13 +12,15 @@ from functools import partial
 from util.vision_util import process_vision_info
 from util.logutil import init_logger, get_logger
 
-from accelerate import Accelerator
+from accelerate import Accelerator, DeepSpeedPlugin
 
-accelerator = Accelerator(gradient_accumulation_steps=2)
+deepspeed_plugin = DeepSpeedPlugin(zero_stage=3, gradient_accumulation_steps=2, zero3_save_16bit_model=True)
+accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin)
 device = accelerator.device
+output_dir = f'train_output/{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}/'
 
 if accelerator.is_local_main_process:
-    output_dir = f'train_output/{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}/'
+    os.makedirs(output_dir, exist_ok=True)
     init_logger(output_dir)
     logger = get_logger()
 
@@ -185,18 +187,18 @@ def train():
 
     
     accelerator.wait_for_everyone()
+    unwrapped_model = accelerator.unwrap_model(model)
+    unwrapped_model.save_pretrained(
+        output_dir,
+        is_main_process=accelerator.is_main_process,
+        save_function=accelerator.save,
+        state_dict=accelerator.get_state_dict(model),
+    )
     if accelerator.is_local_main_process:
-        os.makedirs(output_dir, exist_ok=True)
-        unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(
-            output_dir,
-            is_main_process=accelerator.is_main_process,
-            save_function=accelerator.save,
-        )
         processor.save_pretrained(output_dir)
         write_chat_template(processor, output_dir)
 
 if __name__ == "__main__":
     train()
 
-    
+

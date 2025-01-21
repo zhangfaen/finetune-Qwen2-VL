@@ -11,6 +11,7 @@ from functools import partial
 
 from util.vision_util import process_vision_info
 from util.logutil import init_logger, get_logger
+from torch.amp import autocast
 
 output_dir = f'train_output/{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}/'
 init_logger(output_dir)
@@ -217,6 +218,7 @@ def train():
     )
 
     model.train()
+    model.float()
     epochs = 10
     # import pdb
     # pdb.set_trace()
@@ -230,7 +232,8 @@ def train():
             inputs, labels = batch
             # import pdb
             # pdb.set_trace()
-            outputs = model(**inputs, labels=labels)
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs = model(**inputs, labels=labels)
             
             loss = outputs.loss / NUM_ACCUMULATION_STEPS
             accumulated_avg_loss += loss.item()
@@ -243,6 +246,7 @@ def train():
                 optimizer.zero_grad()
 
     os.makedirs(output_dir, exist_ok=True)
+    model.bfloat16()
     model.save_pretrained(output_dir)
     processor.save_pretrained(output_dir)
     write_chat_template(processor, output_dir)

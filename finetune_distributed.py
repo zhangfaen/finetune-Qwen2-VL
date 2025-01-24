@@ -12,13 +12,70 @@ from functools import partial
 from util.vision_util import process_vision_info
 from util.logutil import init_logger, get_logger
 
-from accelerate import Accelerator
+from accelerate import Accelerator, DeepSpeedPlugin
 
-accelerator = Accelerator(gradient_accumulation_steps=2)
+# Create a DeepSpeedPlugin configuration object to customize DeepSpeed integration settings。
+deepspeed_plugin = DeepSpeedPlugin(
+    zero_stage=3,   # Enable ZeRO (Zero Redundancy Optimizer) stage 3 optimization
+                    # ZeRO stages: 
+                    # 0 - disabled
+                    # 1 - optimizer state partitioning
+                    # 2 - optimizer state + gradient partitioning
+                    # 3 - optimizer state + gradient + parameter partitioning (most memory efficient)
+    gradient_accumulation_steps=2,  # Accumulate gradients over 2 steps before optimization
+    zero3_save_16bit_model=True # Save models in 16-bit precision when using ZeRO stage 3
+                                # Reduces model checkpoint size by 50% while maintaining model quality
+)
+
+# Initialize the Hugging Face Accelerator with DeepSpeed integration
+# Accelerator provides a unified interface for distributed training across various backends
+# (TPU, multi-GPU, DeepSpeed, etc.) while maintaining compatibility with PyTorch code
+accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin)
+'''
+Under the above configuration, when launching the script with the command:
+CUDA_VISIBLE_DEVICES="0,1" accelerate launch --mixed_precision=bf16 --dynamo_backend=no --num_machines=1 --num_processes=2 --use_deepspeed finetune_distributed.py,
+the final DeepSpeed configuration required will be generated during the subsequent execution of accelerator.prepare(). The configuration details are as follows:
+
+json = {
+    "train_batch_size": 4, 
+    "train_micro_batch_size_per_gpu": 1, 
+    "gradient_accumulation_steps": 2, 
+    "zero_optimization": {
+        "stage": 3, 
+        "offload_optimizer": {
+            "device": "none", 
+            "nvme_path": null
+        }, 
+        "offload_param": {
+            "device": "none", 
+            "nvme_path": null
+        }, 
+        "stage3_gather_16bit_weights_on_model_save": true
+    }, 
+    "gradient_clipping": 1.0, 
+    "steps_per_print": inf, 
+    "bf16": {
+        "enabled": true
+    }, 
+    "fp16": {
+        "enabled": false
+    }, 
+    "zero_allow_untested_optimizer": true
+}
+
+'''
+
+'''
+Attention: 
+In DeepSpeed, fp16 and bf16 are generally indicative of mixed precision training. 
+The half-precision is used for forward and backward computations, while fp32 is used for optimizer computation.
+'''
+
 device = accelerator.device
+output_dir = f'train_output/{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}/'
 
 if accelerator.is_local_main_process:
-    output_dir = f'train_output/{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}/'
+    os.makedirs(output_dir, exist_ok=True)
     init_logger(output_dir)
     logger = get_logger()
 
@@ -135,7 +192,7 @@ def train():
     #   Unrecognized keys in `rope_scaling` for 'rope_type'='default': {'mrope_section'}"
     # It is a issue, see https://github.com/huggingface/transformers/issues/33401
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype="bfloat16"
+        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype="bfloat16", attn_implementation="flash_attention_2"
     )
 
 
@@ -167,7 +224,6 @@ def train():
     model.train()
     epochs = 10
     optimizer = AdamW(model.parameters(), lr=1e-5)
-
     model, optimizer, train_loader = accelerator.prepare(model, optimizer, train_loader)
     for epoch in range(epochs):
         steps = 0
@@ -183,20 +239,21 @@ def train():
                 if accelerator.is_local_main_process:
                     logger.info(f"Batch {steps} of epoch {epoch + 1}/{epochs}, training loss : {loss.item()}")
 
-    
+    # Synchronize all processes to ensure training completion before saving the model.
     accelerator.wait_for_everyone()
+    # Unwrap the model from distributed training wrappers
+    unwrapped_model = accelerator.unwrap_model(model)
+    # Save the model using HuggingFace's pretrained format
+    unwrapped_model.save_pretrained(
+        output_dir,
+        is_main_process=accelerator.is_main_process,# Only save from main process to avoid conflicts
+        save_function=accelerator.save,
+        state_dict=accelerator.get_state_dict(model),# Get complete state dict including optimizer states (critical for DeepSpeed)
+    )
     if accelerator.is_local_main_process:
-        os.makedirs(output_dir, exist_ok=True)
-        unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(
-            output_dir,
-            is_main_process=accelerator.is_main_process,
-            save_function=accelerator.save,
-        )
         processor.save_pretrained(output_dir)
         write_chat_template(processor, output_dir)
 
 if __name__ == "__main__":
     train()
 
-    

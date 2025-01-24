@@ -11,6 +11,7 @@ from functools import partial
 
 from util.vision_util import process_vision_info
 from util.logutil import init_logger, get_logger
+from torch.amp import autocast
 
 output_dir = f'train_output/{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}/'
 init_logger(output_dir)
@@ -217,6 +218,10 @@ def train():
     )
 
     model.train()
+
+    # Explicit conversion to FP32 for training stability.
+    # Maintain FP32 storage while allowing autocast to manage computation precision dynamically.
+    model.float()
     epochs = 10
     # import pdb
     # pdb.set_trace()
@@ -230,7 +235,33 @@ def train():
             inputs, labels = batch
             # import pdb
             # pdb.set_trace()
-            outputs = model(**inputs, labels=labels)
+            """
+            Automatic Mixed Precision (AMP) context manager for efficient training.
+            autocast behavior is primarily controlled by PyTorch's predefined rules。
+            Key purposes:
+            1. Precision Optimization: Auto-casts to BF16 for accelerated compute/memory efficiency, 
+               retaining FP32 where critical for stability.
+            2. Numerical Safety: Maintains FP32 precision for sensitive operations
+               (e.g., softmax, layer normalization) to prevent overflow/underflow
+            3. Better Convergence: Empirical studies show hybrid precision (mix of bfloat16/float32) 
+               achieves better model accuracy than pure bfloat16 training.
+
+            AMP context manager can be embeded by another AMP context manager, the behavior is shown by below code snippet.
+            '''
+            import torch
+            from torch.amp import autocast
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                print(torch.is_autocast_enabled()) # True
+                with autocast(device_type='cuda', dtype=torch.bfloat16):
+                  print(torch.is_autocast_enabled()) # True
+                with autocast(device_type='cuda', dtype=torch.bfloat16, enabled=False):
+                  print(torch.is_autocast_enabled()) # False
+                print(torch.is_autocast_enabled()) # True
+            print(torch.is_autocast_enabled()) # False
+            '''
+            """
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs = model(**inputs, labels=labels)
             
             loss = outputs.loss / NUM_ACCUMULATION_STEPS
             accumulated_avg_loss += loss.item()
@@ -243,6 +274,7 @@ def train():
                 optimizer.zero_grad()
 
     os.makedirs(output_dir, exist_ok=True)
+    model.bfloat16() # Reduce the model file size while maintaining nearly unchanged model accuracy.
     model.save_pretrained(output_dir)
     processor.save_pretrained(output_dir)
     write_chat_template(processor, output_dir)

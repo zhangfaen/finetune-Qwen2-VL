@@ -2,6 +2,8 @@
 **[这个文档的中文版](README.zh.md)**
 
 ### News/Updates
+* 2025/01/24
+  * Add mix precision training (bfloat16 + float32) instead of only bfloat16 training. This can improve validation loss much.
 * 2024/10/12
   * Update package dependencies to use latest huggingface/transformers released version 4.45.2. Tests passed.
 * 2024/09/25 

@@ -2,6 +2,8 @@
 **[这个文档的中文版](README.zh.md)**
 
 ### News/Updates
+* 2025/02/08
+  * Add finetune support for Qwen2.5-VL-3B, see https://github.com/zhangfaen/finetune-Qwen2.5-VL  (it use huggingface/accelerate + deepspeed plugin on 4 gpus). 
 * 2025/01/24
   * Add mix precision training (bfloat16 + float32) instead of only bfloat16 training. This can improve validation loss much. See https://github.com/zhangfaen/finetune-Qwen2-VL/pull/33 
 * 2024/10/12
